@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Users, UserPlus, Check, X, Copy, Link as LinkIcon, Search } from "lucide-react";
 
-type Friend = { id: string; username: string; name: string | null; balance: number };
+type Friend = { id: string; username: string; name: string | null };
 type Friendship = {
   id: string;
   status: string;
@@ -98,7 +98,7 @@ export default function FriendsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Amici</h1>
-          <p className="text-gray-500">{friends.length} amici</p>
+          <p className="text-muted-foreground">{friends.length} amici</p>
         </div>
       </div>
 
@@ -109,7 +109,7 @@ export default function FriendsPage() {
           <span className="text-sm font-medium text-emerald-400">Invita amici</span>
         </div>
         <div className="flex items-center gap-2">
-          <code className="flex-1 truncate rounded-lg bg-black/30 px-3 py-2 text-sm text-white">
+          <code className="flex-1 truncate rounded-lg bg-foreground/10 px-3 py-2 text-sm text-foreground">
             {inviteLink}
           </code>
           <button
@@ -123,16 +123,16 @@ export default function FriendsPage() {
 
       {/* Search/add friend */}
       <div>
-        <h2 className="mb-3 text-sm font-semibold text-gray-400">Aggiungi amico</h2>
+        <h2 className="mb-3 text-sm font-semibold text-muted-foreground">Aggiungi amico</h2>
         <div className="flex gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               value={searchUsername}
               onChange={(e) => { setSearchUsername(e.target.value); setSearchError(""); }}
               onKeyDown={(e) => e.key === "Enter" && addFriend()}
-              className="w-full rounded-lg border border-gray-700 bg-gray-800 pl-10 pr-4 py-2 text-white placeholder-gray-500 focus:border-emerald-500 focus:outline-none"
+              className="w-full rounded-lg border border-border bg-muted pl-10 pr-4 py-2 text-foreground placeholder-muted-foreground focus:border-emerald-500 focus:outline-none"
               placeholder="Cerca per username..."
             />
           </div>
@@ -145,14 +145,14 @@ export default function FriendsPage() {
           </button>
         </div>
         {searchError && (
-          <p className="mt-2 text-sm text-red-400">{searchError}</p>
+          <p className="mt-2 text-sm text-destructive">{searchError}</p>
         )}
       </div>
 
       {/* Pending requests */}
       {pendingReceived.length > 0 && (
         <div>
-          <h2 className="mb-3 text-sm font-semibold text-gray-400">
+          <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
             Richieste in arrivo ({pendingReceived.length})
           </h2>
           <div className="space-y-2">
@@ -166,7 +166,7 @@ export default function FriendsPage() {
                 </div>
                 <div className="flex-1">
                   <p className="font-medium">@{f.initiator.username}</p>
-                  <p className="text-xs text-gray-500">Vuole essere tuo amico</p>
+                  <p className="text-xs text-muted-foreground">Vuole essere tuo amico</p>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -177,7 +177,7 @@ export default function FriendsPage() {
                   </button>
                   <button
                     onClick={() => respondFriendship(f.id, "decline")}
-                    className="rounded-lg bg-gray-800 p-2 text-gray-400 hover:bg-gray-700 transition-colors"
+                    className="rounded-lg bg-muted p-2 text-muted-foreground hover:bg-accent transition-colors"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -190,14 +190,14 @@ export default function FriendsPage() {
 
       {/* Friends list */}
       <div>
-        <h2 className="mb-3 text-sm font-semibold text-gray-400">
+        <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
           I tuoi amici
         </h2>
         {friends.length === 0 ? (
-          <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-12 text-center">
-            <Users className="mx-auto h-12 w-12 text-gray-600" />
-            <p className="mt-4 text-gray-500">Nessun amico ancora</p>
-            <p className="text-sm text-gray-600">
+          <div className="rounded-xl border border-border bg-card p-12 text-center">
+            <Users className="mx-auto h-12 w-12 text-muted-foreground/50" />
+            <p className="mt-4 text-muted-foreground">Nessun amico ancora</p>
+            <p className="text-sm text-muted-foreground/50">
               Cerca per username o condividi il tuo codice invito
             </p>
           </div>
@@ -206,14 +206,14 @@ export default function FriendsPage() {
             {friends.map((friend) => (
               <div
                 key={friend.id}
-                className="flex items-center gap-3 rounded-xl border border-gray-800 bg-gray-900/50 p-4"
+                className="flex items-center gap-3 rounded-xl border border-border bg-card p-4"
               >
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 font-semibold">
                   {friend.username.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1">
                   <p className="font-medium">@{friend.username}</p>
-                  <p className="text-xs text-gray-500">{friend.name}</p>
+                  <p className="text-xs text-muted-foreground">{friend.name}</p>
                 </div>
               </div>
             ))}

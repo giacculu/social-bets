@@ -29,7 +29,7 @@ export function SportsSidebar({ sports }: { sports: Sport[] }) {
   return (
     <nav className="space-y-6">
       <div>
-        <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Navigazione
         </h3>
         <div className="space-y-1">
@@ -41,7 +41,7 @@ export function SportsSidebar({ sports }: { sports: Sport[] }) {
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 pathname === item.href
                   ? "bg-emerald-500/10 text-emerald-400"
-                  : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )}
             >
               <item.icon className="h-4 w-4" />
@@ -52,7 +52,7 @@ export function SportsSidebar({ sports }: { sports: Sport[] }) {
       </div>
 
       <div>
-        <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+        <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           Sport
         </h3>
         <div className="space-y-1">
@@ -64,13 +64,13 @@ export function SportsSidebar({ sports }: { sports: Sport[] }) {
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 pathname.includes(sport.slug)
                   ? "bg-emerald-500/10 text-emerald-400"
-                  : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )}
             >
               <span className="text-base">{sport.icon || "🏅"}</span>
               {sport.name}
               {sport.leagues.length > 0 && (
-                <span className="ml-auto text-xs text-gray-600">
+                <span className="ml-auto text-xs text-muted-foreground/50">
                   {sport.leagues.length}
                 </span>
               )}

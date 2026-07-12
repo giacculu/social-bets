@@ -26,13 +26,13 @@ export default async function SportsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Sport</h1>
-        <p className="text-gray-500">Sfoglia tutti gli eventi disponibili</p>
+        <p className="text-muted-foreground">Sfoglia tutti gli eventi disponibili</p>
       </div>
 
       {sports.length === 0 ? (
-        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-12 text-center">
-          <p className="text-gray-500">Nessuno sport disponibile al momento</p>
-          <p className="mt-2 text-sm text-gray-600">
+        <div className="rounded-xl border border-border bg-card p-12 text-center">
+          <p className="text-muted-foreground">Nessuno sport disponibile al momento</p>
+          <p className="mt-2 text-sm text-muted-foreground/50">
             Torna presto - stiamo aggiungendo nuovi sport ogni giorno!
           </p>
         </div>
@@ -47,7 +47,7 @@ export default async function SportsPage() {
                 </div>
                 <Link
                   href={`/sports/${sport.slug}`}
-                  className="flex items-center gap-1 text-sm text-emerald-400 hover:text-emerald-300"
+                  className="flex items-center gap-1 text-sm text-primary hover:text-primary/80"
                 >
                   Vedi tutto <ChevronRight className="h-4 w-4" />
                 </Link>
@@ -56,11 +56,11 @@ export default async function SportsPage() {
               {sport.leagues.map((league) => (
                 <div
                   key={league.id}
-                  className="rounded-xl border border-gray-800 bg-gray-900/50"
+                  className="rounded-xl border border-border bg-card"
                 >
                   <Link
                     href={`/sports/${sport.slug}/${league.slug}`}
-                    className="flex items-center justify-between border-b border-gray-800 px-4 py-3 hover:bg-gray-800/50 transition-colors"
+                    className="flex items-center justify-between border-b border-border px-4 py-3 hover:bg-accent/50 transition-colors"
                   >
                     <div className="flex items-center gap-2">
                       {league.logoUrl && (
@@ -72,27 +72,27 @@ export default async function SportsPage() {
                       )}
                       <span className="font-medium">{league.name}</span>
                       {league.country && (
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-muted-foreground">
                           {league.country}
                         </span>
                       )}
                     </div>
-                    <ChevronRight className="h-4 w-4 text-gray-500" />
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </Link>
 
                   {league.events.length > 0 && (
-                    <div className="divide-y divide-gray-800">
+                    <div className="divide-y divide-border">
                       {league.events.map((event) => (
                         <Link
                           key={event.id}
                           href={`/sports/${sport.slug}/${league.slug}?event=${event.id}`}
-                          className="flex items-center justify-between px-4 py-3 hover:bg-gray-800/30 transition-colors"
+                          className="flex items-center justify-between px-4 py-3 hover:bg-accent/30 transition-colors"
                         >
                           <div className="flex-1">
                             <p className="font-medium">
                               {event.homeTeamName} vs {event.awayTeamName}
                             </p>
-                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               <Calendar className="h-3 w-3" />
                               {formatDate(event.startTime)}
                               {event.status === "LIVE" && (
@@ -102,7 +102,7 @@ export default async function SportsPage() {
                               )}
                             </div>
                           </div>
-                          <ChevronRight className="h-4 w-4 text-gray-500" />
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
                         </Link>
                       ))}
                     </div>

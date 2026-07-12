@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Trophy, Users, Wallet, Home, Swords } from "lucide-react";
+import { Trophy, Users, Wallet, Home, Swords, Target } from "lucide-react";
 
 const tabs = [
   { href: "/sports", label: "Sport", icon: Trophy },
-  { href: "/contests", label: "Contest", icon: Swords },
-  { href: "/bets", label: "Scommesse", icon: Home },
-  { href: "/friends", label: "Amici", icon: Users },
+  { href: "/predictions", label: "Previsioni", icon: Target },
+  { href: "/feed", label: "Feed", icon: Users },
+  { href: "/leaderboard", label: "Classifica", icon: Home },
   { href: "/wallet", label: "Portafoglio", icon: Wallet },
 ];
 

@@ -7,6 +7,7 @@ import { UserMenu } from "@/components/layout/UserMenu";
 import { WalletBadge } from "@/components/layout/WalletBadge";
 import { DesktopNavigation } from "@/components/layout/DesktopNavigation";
 import { MobileNavigation } from "@/components/layout/MobileNavigation";
+import { CommandPalette } from "@/components/features/search/CommandPalette";
 
 export default async function DashboardLayout({
   children,
@@ -44,6 +45,7 @@ export default async function DashboardLayout({
           <DesktopNavigation />
 
           <div className="flex items-center gap-3">
+            <CommandPalette />
             <WalletBadge balance={session.user.balance ?? 0} realBalance={Number(wallet?.balance ?? 0)} />
             <UserMenu user={session.user} />
           </div>

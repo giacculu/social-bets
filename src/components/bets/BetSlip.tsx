@@ -81,7 +81,7 @@ export function BetSlip() {
   }
 
   return (
-    <div className="rounded-xl border border-gray-800 bg-gray-900 p-4">
+    <div className="rounded-xl border border-border bg-card p-4">
       <h3 className="mb-3 font-semibold">
         Schedina
         {selections.length > 0 && (
@@ -92,7 +92,7 @@ export function BetSlip() {
       </h3>
 
       {selections.length === 0 ? (
-        <p className="text-sm text-gray-500 py-8 text-center">
+        <p className="text-sm text-muted-foreground py-8 text-center">
           Clicca sulle quote per aggiungere alla schedina
         </p>
       ) : (
@@ -101,11 +101,11 @@ export function BetSlip() {
             {selections.map((s) => (
               <div
                 key={s.outcomeId}
-                className="flex items-center justify-between rounded-lg bg-gray-800 p-3"
+                className="flex items-center justify-between rounded-lg bg-muted p-3"
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{s.eventName}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     {s.marketName} - {s.outcomeName}
                   </p>
                 </div>
@@ -115,7 +115,7 @@ export function BetSlip() {
                   </span>
                   <button
                     onClick={() => removeSelection(s.outcomeId)}
-                    className="text-gray-500 hover:text-red-400"
+                    className="text-muted-foreground hover:text-destructive"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -126,7 +126,7 @@ export function BetSlip() {
 
           <div className="mt-4 space-y-3">
             <div>
-              <label className="mb-1 block text-xs text-gray-500">
+              <label className="mb-1 block text-xs text-muted-foreground">
                 Importo (€)
               </label>
               <input
@@ -134,17 +134,17 @@ export function BetSlip() {
                 value={stake}
                 onChange={(e) => setStake(e.target.value)}
                 min="1"
-                className="w-full rounded-lg border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white focus:border-emerald-500 focus:outline-none"
+                className="w-full rounded-lg border border-border bg-muted px-3 py-2 text-sm text-foreground focus:border-emerald-500 focus:outline-none"
                 placeholder="0.00"
               />
             </div>
 
             <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Quota totale</span>
+              <span className="text-muted-foreground">Quota totale</span>
               <span className="font-bold">{totalOdds.toFixed(2)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Vincita potenziale</span>
+              <span className="text-muted-foreground">Vincita potenziale</span>
               <span className="font-bold text-emerald-400">
                 €{potentialWin.toFixed(2)}
               </span>

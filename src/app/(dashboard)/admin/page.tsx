@@ -22,7 +22,7 @@ export default async function AdminPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-          <p className="text-gray-500">Sistema di raccolta dati sportivi</p>
+          <p className="text-muted-foreground">Sistema di raccolta dati sportivi</p>
         </div>
         <div className="flex gap-2">
           <form action="/api/admin/sync" method="POST">
@@ -43,17 +43,17 @@ export default async function AdminPage() {
       {/* Stats Grid */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         {[
-          { label: "Eventi", value: status.stats.totalEvents, color: "text-white" },
-          { label: "Mercati", value: status.stats.totalMarkets, color: "text-white" },
-          { label: "Outcome", value: status.stats.totalOutcomes, color: "text-white" },
+          { label: "Eventi", value: status.stats.totalEvents, color: "text-foreground" },
+          { label: "Mercati", value: status.stats.totalMarkets, color: "text-foreground" },
+          { label: "Outcome", value: status.stats.totalOutcomes, color: "text-foreground" },
           { label: "Prossimi", value: status.stats.upcomingEvents, color: "text-yellow-400" },
           { label: "Live", value: status.stats.liveEvents, color: "text-red-400" },
           { label: "Scommesse Settled", value: status.stats.settledBets, color: "text-emerald-400" },
           { label: "Scommesse Pending", value: status.stats.pendingBets, color: "text-orange-400" },
         ].map((stat) => (
-          <div key={stat.label} className="rounded-lg border border-gray-800 bg-gray-900/50 p-4 text-center">
+          <div key={stat.label} className="rounded-lg border border-border bg-card p-4 text-center">
             <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-            <p className="text-xs text-gray-500">{stat.label}</p>
+            <p className="text-xs text-muted-foreground">{stat.label}</p>
           </div>
         ))}
       </div>
@@ -65,7 +65,7 @@ export default async function AdminPage() {
           {status.sources.map((source) => (
             <div
               key={source.name}
-              className="flex items-center gap-4 rounded-xl border border-gray-800 bg-gray-900/50 p-4"
+              className="flex items-center gap-4 rounded-xl border border-border bg-card p-4"
             >
               <div
                 className={`h-3 w-3 rounded-full ${
@@ -74,19 +74,18 @@ export default async function AdminPage() {
               />
               <div className="flex-1">
                 <p className="font-medium">{source.displayName}</p>
-                <p className="text-xs text-gray-500">
-                  Priority: {source.enabled ? "Alta" : "Bassa"} · Reliability:{" "}
+                <p className="text-xs text-muted-foreground"> {source.enabled ? "Alta" : "Bassa"} · Reliability:{" "}
                   {(source.reliability * 100).toFixed(0)}% · Errors:{" "}
                   {source.errorCount} · Syncs: {source.totalSyncs}
                 </p>
               </div>
               <div className="text-right text-sm">
-                <p className="text-gray-400">
+                <p className="text-muted-foreground">
                   {formatTime(source.lastSync)}
                 </p>
                 <p
                   className={`text-xs ${
-                    source.enabled ? "text-emerald-400" : "text-gray-500"
+                    source.enabled ? "text-primary" : "text-muted-foreground"
                   }`}
                 >
                   {source.enabled ? "Attiva" : "Disattiva"}
@@ -95,11 +94,11 @@ export default async function AdminPage() {
             </div>
           ))}
           {status.sources.length === 0 && (
-            <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-8 text-center">
-              <p className="text-gray-500">
+            <div className="rounded-xl border border-border bg-card p-8 text-center">
+              <p className="text-muted-foreground">
                 Nessuna fonte configurata
               </p>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-muted-foreground/50 mt-1">
                 Aggiungi le API keys nelle env vars per attivare i sources
               </p>
             </div>
@@ -112,8 +111,8 @@ export default async function AdminPage() {
         <h2 className="mb-4 text-lg font-semibold">Job Recenti</h2>
         <div className="space-y-1">
           {status.recentJobs.length === 0 ? (
-            <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-8 text-center">
-              <p className="text-gray-500">Nessun job eseguito ancora</p>
+            <div className="rounded-xl border border-border bg-card p-8 text-center">
+              <p className="text-muted-foreground">Nessun job eseguito ancora</p>
             </div>
           ) : (
             status.recentJobs
@@ -123,7 +122,7 @@ export default async function AdminPage() {
               .map((job) => (
                 <div
                   key={job.id}
-                  className="flex items-center gap-3 rounded-lg border border-gray-800 bg-gray-900/50 px-4 py-2 text-sm"
+                  className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-2 text-sm"
                 >
                   <div
                     className={`h-2 w-2 rounded-full ${
@@ -133,15 +132,15 @@ export default async function AdminPage() {
                         ? "bg-red-400"
                         : job.status === "running"
                         ? "bg-yellow-400 animate-pulse"
-                        : "bg-gray-500"
+                        : "bg-muted-foreground"
                     }`}
                   />
-                  <span className="text-gray-400">{job.source}</span>
-                  <span className="flex-1 text-gray-500">
+                  <span className="text-muted-foreground">{job.source}</span>
+                  <span className="flex-1 text-muted-foreground">
                     {job.status}
                     {job.error && ` - ${job.error}`}
                   </span>
-                  <span className="text-xs text-gray-600">
+                  <span className="text-xs text-muted-foreground/50">
                     {job.startedAt
                       ? new Date(job.startedAt).toLocaleTimeString("it-IT")
                       : ""}
@@ -155,22 +154,22 @@ export default async function AdminPage() {
       {/* Cron Schedule Info */}
       <div>
         <h2 className="mb-4 text-lg font-semibold">Cron Jobs (Vercel)</h2>
-        <div className="rounded-xl border border-gray-800 bg-gray-900/50 p-4">
+        <div className="rounded-xl border border-border bg-card p-4">
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
               <p className="text-sm font-medium">Sync Quote</p>
-              <p className="text-xs text-gray-500">Ogni 30 minuti</p>
-              <p className="text-xs text-gray-600">/api/cron?job=sync</p>
+              <p className="text-xs text-muted-foreground">Ogni 30 minuti</p>
+              <p className="text-xs text-muted-foreground/50">/api/cron?job=sync</p>
             </div>
             <div>
               <p className="text-sm font-medium">Settlement</p>
-              <p className="text-xs text-gray-500">Ogni 6 ore</p>
-              <p className="text-xs text-gray-600">/api/cron?job=settle</p>
+              <p className="text-xs text-muted-foreground">Ogni 6 ore</p>
+              <p className="text-xs text-muted-foreground/50">/api/cron?job=settle</p>
             </div>
             <div>
               <p className="text-sm font-medium">Full Reconciliation</p>
-              <p className="text-xs text-gray-500">Giornaliero alle 3 AM</p>
-              <p className="text-xs text-gray-600">/api/cron?job=full</p>
+              <p className="text-xs text-muted-foreground">Giornaliero alle 3 AM</p>
+              <p className="text-xs text-muted-foreground/50">/api/cron?job=full</p>
             </div>
           </div>
         </div>

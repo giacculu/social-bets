@@ -26,12 +26,12 @@ export function InviteClient({ code }: { code: string }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 rounded-lg bg-black/30 px-3 py-2">
-        <span className="flex-1 truncate text-sm text-gray-300">{inviteLink}</span>
+      <div className="flex items-center gap-2 rounded-lg bg-foreground/10 px-3 py-2">
+        <span className="flex-1 truncate text-sm text-foreground/80">{inviteLink}</span>
         <button
           type="button"
           onClick={copyLink}
-          className="rounded p-1 text-gray-400 hover:text-white transition-colors"
+          className="rounded p-1 text-muted-foreground hover:text-foreground transition-colors"
         >
           {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
         </button>

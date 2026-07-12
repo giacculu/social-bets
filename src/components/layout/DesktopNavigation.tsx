@@ -7,10 +7,10 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/sports", label: "Sport" },
   { href: "/contests", label: "Contest" },
-  { href: "/bets", label: "Le Mie Scommesse" },
+  { href: "/predictions", label: "Previsioni" },
   { href: "/custom-bets", label: "Sfide" },
+  { href: "/feed", label: "Feed" },
   { href: "/friends", label: "Amici" },
-  { href: "/invite", label: "Invita" },
   { href: "/leaderboard", label: "Classifica" },
 ];
 
