@@ -1,26 +1,37 @@
-import { Redis } from "@upstash/redis";
+import Redis from "ioredis";
 
-const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
-const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+const redisUrl = process.env.REDIS_URL;
 
 let redis: Redis | null = null;
 
-function getRedis(): Redis {
+function getRedis(): Redis | null {
+  if (!redisUrl) return null;
   if (!redis) {
-    if (!redisUrl || !redisToken) {
-      throw new Error(
-        "UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must be set"
-      );
+    try {
+      redis = new Redis(redisUrl, {
+        maxRetriesPerRequest: 3,
+        retryStrategy(times) {
+          const delay = Math.min(times * 50, 2000);
+          return delay;
+        },
+        lazyConnect: true,
+        enableOfflineQueue: false,
+      });
+      redis.on("error", () => {}); // Suppress connection errors
+    } catch {
+      return null;
     }
-    redis = new Redis({ url: redisUrl, token: redisToken });
   }
   return redis;
 }
 
 export async function cacheGet<T>(key: string): Promise<T | null> {
   try {
-    const data = await getRedis().get<T>(key);
-    return data ?? null;
+    const client = getRedis();
+    if (!client) return null;
+    const data = await client.get(key);
+    if (!data) return null;
+    return JSON.parse(data) as T;
   } catch {
     return null;
   }
@@ -32,20 +43,24 @@ export async function cacheSet(
   ttlSeconds?: number
 ): Promise<void> {
   try {
-    const redis = getRedis();
+    const client = getRedis();
+    if (!client) return;
+    const serialized = JSON.stringify(value);
     if (ttlSeconds) {
-      await redis.set(key, value, { ex: ttlSeconds });
+      await client.set(key, serialized, "EX", ttlSeconds);
     } else {
-      await redis.set(key, value);
+      await client.set(key, serialized);
     }
   } catch {
-    // Graceful degradation — cache write failure is non-fatal
+    // Graceful degradation
   }
 }
 
 export async function cacheDel(key: string): Promise<void> {
   try {
-    await getRedis().del(key);
+    const client = getRedis();
+    if (!client) return;
+    await client.del(key);
   } catch {
     // Graceful degradation
   }
@@ -53,10 +68,11 @@ export async function cacheDel(key: string): Promise<void> {
 
 export async function cacheDelPattern(pattern: string): Promise<void> {
   try {
-    const redis = getRedis();
-    const keys = await redis.keys(pattern);
+    const client = getRedis();
+    if (!client) return;
+    const keys = await client.keys(pattern);
     if (keys.length > 0) {
-      await redis.del(...keys);
+      await client.del(...keys);
     }
   } catch {
     // Graceful degradation
