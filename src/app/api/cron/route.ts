@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrchestrator } from "@/lib/data/engine/orchestrator";
+import { createChildLogger } from "@/lib/logger";
+
+const log = createChildLogger({ module: "api:cron" });
 
 /**
  * Vercel Cron Job endpoint
@@ -62,7 +65,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Unknown job" }, { status: 400 });
     }
   } catch (error) {
-    console.error(`[Cron] Job ${job} failed:`, error);
+    log.error({ job, err: error }, "Cron job failed");
     return NextResponse.json(
       {
         job,

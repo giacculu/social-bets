@@ -1,72 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthApi } from "@/lib/requireAuth";
+import { createChildLogger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
+import { createCustomBetSchema } from "@/server/validators/custom-bet.validator";
+import { handleApiError } from "@/server/middleware/error.middleware";
+import { NotFoundError, AppError } from "@/lib/errors";
+
+const log = createChildLogger({ module: "api:custom-bets" });
 
 export async function POST(request: NextRequest) {
-  const user = await requireAuthApi();
-  if (!user) {
-    return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
+  try {
+    const user = await requireAuthApi();
+    if (!user) return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
+    const body = await request.json();
+    const data = createCustomBetSchema.parse(body);
+
+    const wallet = await prisma.wallet.findUnique({ where: { userId: user.id } });
+    if (!wallet || Number(wallet.balance) < data.stake * data.participantUsernames.length) {
+      throw new AppError("Insufficient balance", 400, "INSUFFICIENT_BALANCE");
+    }
+
+    const participants = await prisma.user.findMany({ where: { username: { in: data.participantUsernames } } });
+    if (participants.length !== data.participantUsernames.length) throw new NotFoundError("Some users");
+
+    const totalCost = data.stake * participants.length;
+    const customBet = await prisma.customBet.create({ data: { creatorId: user.id, title: data.title, description: data.description, stake: data.stake, deadline: new Date(data.deadline), status: "PENDING", participants: { create: participants.map(p => ({ userId: p.id, prediction: "" })) } } });
+
+    await prisma.$transaction([prisma.wallet.update({ where: { userId: user.id }, data: { balance: { decrement: totalCost } } }), prisma.transaction.create({ data: { userId: user.id, type: "CUSTOM_BET_ENTRY", amount: -totalCost, balance: Number(wallet.balance) - totalCost, reference: `Challenge: ${data.title}` } })]);
+
+    log.info({ userId: user.id, customBetId: customBet.id }, "Custom bet created");
+    return NextResponse.json({ success: true, betId: customBet.id });
+  } catch (error) {
+    return handleApiError(error);
   }
-
-  const body = await request.json();
-  const { title, description, stake, deadline, participantUsernames } = body;
-
-  if (!title || !stake || !deadline || !participantUsernames?.length) {
-    return NextResponse.json({ error: "Parametri mancanti" }, { status: 400 });
-  }
-
-  const stakeNum = parseFloat(stake);
-  if (stakeNum <= 0) {
-    return NextResponse.json({ error: "Importo non valido" }, { status: 400 });
-  }
-
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id },
-  });
-
-  if (!dbUser || Number(dbUser.balance) < stakeNum * participantUsernames.length) {
-    return NextResponse.json({ error: "Saldo insufficiente" }, { status: 400 });
-  }
-
-  const participants = await prisma.user.findMany({
-    where: { username: { in: participantUsernames } },
-  });
-
-  if (participants.length !== participantUsernames.length) {
-    return NextResponse.json({ error: "Alcuni utenti non trovati" }, { status: 404 });
-  }
-
-  const totalCost = stakeNum * participants.length;
-
-  const customBet = await prisma.customBet.create({
-    data: {
-      creatorId: user.id,
-      title,
-      description,
-      stake: stakeNum,
-      deadline: new Date(deadline),
-      status: "PENDING",
-      participants: {
-        create: participants.map((p) => ({ userId: p.id, prediction: "" })),
-      },
-    },
-  });
-
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: user.id },
-      data: { balance: { decrement: totalCost } },
-    }),
-    prisma.transaction.create({
-      data: {
-        userId: user.id,
-        type: "CUSTOM_BET_ENTRY",
-        amount: -totalCost,
-        balance: Number(dbUser.balance) - totalCost,
-        reference: `Sfida: ${title}`,
-      },
-    }),
-  ]);
-
-  return NextResponse.json({ success: true, betId: customBet.id });
 }

@@ -7,23 +7,271 @@ datasource db {
   provider = "postgresql"
 }
 
+// ─── Enums ───────────────────────────────────────────────────
+
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum EventStatus {
+  UPCOMING
+  LIVE
+  FINISHED
+  CANCELLED
+  POSTPONED
+}
+
+enum MarketType {
+  MATCH_RESULT
+  OVER_UNDER
+  BOTH_TEAMS_SCORE
+  HANDICAP
+  FIRST_SCORER
+  CORRECT_SCORE
+  DOUBLE_CHANCE
+  CUSTOM
+}
+
+enum MarketStatus {
+  OPEN
+  SUSPENDED
+  CLOSED
+  SETTLED
+}
+
+enum BetStatus {
+  PENDING
+  LOCKED
+  WON
+  LOST
+  VOID
+  CASHED_OUT
+}
+
+enum BetResult {
+  WIN
+  LOSS
+  VOID
+}
+
+enum PredictionStatus {
+  ACTIVE
+  LOCKED
+  CORRECT
+  INCORRECT
+  VOID
+}
+
+enum CustomBetStatus {
+  PENDING
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum ParticipantStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum ParticipantResult {
+  WIN
+  LOSS
+  DRAW
+  NO_SHOW
+}
+
+enum ContestStatus {
+  DRAFT
+  OPEN
+  LOCKED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ContestVisibility {
+  PUBLIC
+  FRIENDS
+  PRIVATE
+}
+
+enum EntryStatus {
+  REGISTERED
+  CONFIRMED
+  DISQUALIFIED
+  COMPLETED
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  BLOCKED
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  BET_PLACED
+  BET_WON
+  BET_LOST
+  BET_CANCELLED
+  BET_REFUND
+  DAILY_BONUS
+  REFERRAL_BONUS
+  CUSTOM_BET_ENTRY
+  CUSTOM_BET_WON
+  CHALLENGE_WON
+  CHALLENGE_LOST
+  CHALLENGE_REFUND
+  ADMIN_ADJUSTMENT
+}
+
+enum RealTransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  CONTEST_ENTRY
+  CONTEST_WIN
+  CONTEST_REFUND
+  REFERRAL_BONUS
+  ADMIN_ADJUSTMENT
+}
+
+enum RealTxStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum FeedVisibility {
+  PUBLIC
+  FRIENDS
+  PRIVATE
+}
+
+enum ActivityType {
+  PREDICTION
+  PREDICTION_RESULT
+  BET_PLACED
+  BET_WON
+  BET_LOST
+  CONTEST_CREATED
+  CONTEST_JOINED
+  CONTEST_WON
+  CHALLENGE_CREATED
+  CHALLENGE_ACCEPTED
+  CHALLENGE_WON
+  FRIEND_ADDED
+  ACHIEVEMENT_EARNED
+  STREAK_MILESTONE
+}
+
+enum ActivityTarget {
+  EVENT
+  CONTEST
+  CHALLENGE
+  USER
+  PREDICTION
+  BET
+}
+
+enum NotificationType {
+  BET_RESULT
+  CONTEST_UPDATE
+  CHALLENGE_REQUEST
+  FRIEND_REQUEST
+  FRIEND_ACCEPTED
+  ACHIEVEMENT
+  LEADERBOARD_CHANGE
+  SYSTEM
+}
+
+enum CommentTarget {
+  EVENT
+  CONTEST
+  CHALLENGE
+}
+
+enum ReactionTarget {
+  PREDICTION
+  COMMENT
+  ACTIVITY
+  EVENT
+}
+
+enum SyncJobStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum DataSource {
+  THE_ODDS_API
+  FOOTBALL_DATA_ORG
+  MANUAL
+}
+
+enum AchievementType {
+  FIRST_PREDICTION
+  FIRST_WIN
+  WIN_STREAK_5
+  WIN_STREAK_10
+  WIN_STREAK_25
+  PERFECT_WEEK
+  ALL_CORRECT
+  CHALLENGE_WON_10
+  CONTEST_WINNER
+  SPORT_EXPERT
+  SOCIAL_BUTTERFLY
+  REFERRAL_MASTER
+  EARLY_ADOPTER
+}
+
 // ─── Auth & Users ────────────────────────────────────────────
 
-model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  username      String    @unique
-  name          String?
-  avatarUrl     String?
-  passwordHash  String
-  balance       Decimal   @default(10000) @db.Decimal(12, 2)
-  realBalance   Decimal   @default(0) @db.Decimal(12, 2)
-  inviteCode    String    @unique
-  referredBy    String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+// ARCHITECTURE NOTE — AdminActionLog (future, M7+):
+// Every privileged admin operation MUST be logged to an AdminActionLog table:
+//   - adminUserId: who performed the action
+//   - action: enum (SETTLE_BET, ADJUST_BALANCE, BAN_USER, MODIFY_CONTEST, etc.)
+//   - targetType: enum (USER, BET, CONTEST, EVENT, SYSTEM)
+//   - targetId: ID of the affected entity
+//   - metadata: Json (before/after snapshots, reason, ip)
+//   - createdAt: DateTime
+// This is required for wallet operations, contest management, and manual settlements.
+// Implement as part of M7 (Features) when admin pages are rebuilt.
 
+model User {
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  username              String    @unique
+  name                  String?
+  avatarUrl             String?
+  passwordHash          String
+  inviteCode            String    @unique
+  referredBy            String?
+  role                  UserRole  @default(USER)
+  version               Int       @default(1)
+  emailVerified         DateTime?
+  onboardingCompleted   Boolean   @default(false)
+  preferredSports       String[]
+  timezone              String?   @default("UTC")
+  locale                String?   @default("en")
+  deletedAt             DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  wallet                Wallet?
   bets                  Bet[]
+  predictions           Prediction[]
   customBetsCreated     CustomBet[]            @relation("CustomBetCreator")
   customBetParticipants CustomBetParticipant[]
   transactions          Transaction[]
@@ -33,8 +281,32 @@ model User {
   contestsCreated       Contest[]              @relation("ContestCreator")
   contestEntries        ContestEntry[]
   realTransactions      RealTransaction[]
+  achievements          Achievement[]
+  reputation            Reputation?
+  activityFeedEntries   ActivityFeedEntry[]
+  notifications         Notification[]
+  comments              Comment[]
+  reactions             Reaction[]
+  userStats             UserStats?
   referrer              User?                  @relation("ReferralSource", fields: [referredBy], references: [inviteCode])
   referralsGiven        User[]                 @relation("ReferralSource")
+
+  @@index([role, deletedAt])
+}
+
+// ─── Wallet ──────────────────────────────────────────────────
+
+model Wallet {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  balance       Decimal  @default(10000) @db.Decimal(12, 2)
+  frozenBalance Decimal  @default(0) @db.Decimal(12, 2)
+  currency      String   @default("EUR")
+  version       Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
 }
 
 // ─── Sports Data ─────────────────────────────────────────────
@@ -83,6 +355,7 @@ model Team {
 model Event {
   id            String    @id @default(cuid())
   leagueId      String
+  sportId       String?
   externalId    String?   @unique
   homeTeamId    String?
   awayTeamId    String?
@@ -95,27 +368,23 @@ model Event {
   scoreAway     Int?
   slug          String?
   metadata      Json?
+  deletedAt     DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  league   League   @relation(fields: [leagueId], references: [id])
-  homeTeam Team?    @relation("HomeTeam", fields: [homeTeamId], references: [id])
-  awayTeam Team?    @relation("AwayTeam", fields: [awayTeamId], references: [id])
-  markets  Market[]
-  bets     Bet[]
-  contests Contest[]
+  league     League      @relation(fields: [leagueId], references: [id])
+  homeTeam   Team?       @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam   Team?       @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  markets    Market[]
+  bets       Bet[]
+  predictions Prediction[]
+  contests   Contest[]
+  stats      EventStats?
 
   @@index([leagueId])
+  @@index([sportId, status])
   @@index([startTime])
   @@index([status])
-}
-
-enum EventStatus {
-  UPCOMING
-  LIVE
-  FINISHED
-  CANCELLED
-  POSTPONED
 }
 
 // ─── Markets & Odds ──────────────────────────────────────────
@@ -132,28 +401,11 @@ model Market {
 
   event    Event      @relation(fields: [eventId], references: [id])
   bets     Bet[]
+  predictions Prediction[]
   outcomes Outcome[]
 
   @@unique([eventId, slug])
   @@index([eventId])
-}
-
-enum MarketType {
-  MATCH_RESULT
-  OVER_UNDER
-  BOTH_TEAMS_SCORE
-  HANDICAP
-  FIRST_SCORER
-  CORRECT_SCORE
-  DOUBLE_CHANCE
-  CUSTOM
-}
-
-enum MarketStatus {
-  OPEN
-  SUSPENDED
-  CLOSED
-  SETTLED
 }
 
 model Outcome {
@@ -168,51 +420,71 @@ model Outcome {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  market Market @relation(fields: [marketId], references: [id])
-  bets   Bet[]
+  market      Market       @relation(fields: [marketId], references: [id])
+  bets        Bet[]
+  predictions Prediction[]
 
   @@unique([marketId, slug])
   @@index([marketId])
 }
 
-// ─── Bets (Virtual Currency) ─────────────────────────────────
+// ─── Bets (Stake-Based, Virtual Currency) ────────────────────
 
 model Bet {
-  id          String    @id @default(cuid())
-  userId      String
-  eventId     String
-  marketId    String
-  outcomeId   String
-  stake       Decimal   @db.Decimal(10, 2)
-  odds        Decimal   @db.Decimal(8, 2)
-  potentialWin Decimal  @db.Decimal(10, 2)
-  status      BetStatus @default(PENDING)
-  settled     Boolean   @default(false)
-  result      BetResult?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  userId          String
+  eventId         String
+  marketId        String
+  outcomeId       String
+  stake           Decimal   @db.Decimal(10, 2)
+  odds            Decimal   @db.Decimal(8, 2)
+  potentialWin    Decimal   @db.Decimal(10, 2)
+  confidence      Int?
+  isPublic        Boolean   @default(true)
+  status          BetStatus @default(PENDING)
+  settled         Boolean   @default(false)
+  result          BetResult?
+  lockedAt        DateTime?
+  settledAt       DateTime?
+  deletedAt       DateTime?
+  version         Int       @default(1)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   user    User    @relation(fields: [userId], references: [id])
   event   Event   @relation(fields: [eventId], references: [id])
   market  Market  @relation(fields: [marketId], references: [id])
   outcome Outcome @relation(fields: [outcomeId], references: [id])
 
-  @@index([userId])
+  @@index([userId, settled])
   @@index([status])
 }
 
-enum BetStatus {
-  PENDING
-  WON
-  LOST
-  CASHOUT
-  CANCELLED
-}
+// ─── Predictions (Free Picks) ───────────────────────────────
 
-enum BetResult {
-  WIN
-  LOSS
-  PUSH
+model Prediction {
+  id          String           @id @default(cuid())
+  userId      String
+  eventId     String
+  marketId    String
+  outcomeId   String
+  confidence  Int?
+  isPublic    Boolean          @default(true)
+  score       Float?
+  status      PredictionStatus @default(ACTIVE)
+  settledAt   DateTime?
+  deletedAt   DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id])
+  event   Event   @relation(fields: [eventId], references: [id])
+  market  Market  @relation(fields: [marketId], references: [id])
+  outcome Outcome @relation(fields: [outcomeId], references: [id])
+
+  @@index([userId, settledAt])
+  @@index([eventId, settledAt])
+  @@index([outcomeId])
 }
 
 // ─── Custom Bets (Virtual Currency) ──────────────────────────
@@ -233,14 +505,6 @@ model CustomBet {
   participants CustomBetParticipant[]
 }
 
-enum CustomBetStatus {
-  PENDING
-  ACCEPTED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-}
-
 model CustomBetParticipant {
   id          String   @id @default(cuid())
   customBetId String
@@ -256,53 +520,36 @@ model CustomBetParticipant {
   @@unique([customBetId, userId])
 }
 
-enum ParticipantStatus {
-  PENDING
-  ACCEPTED
-  WON
-  LOST
-}
-
-enum ParticipantResult {
-  WIN
-  LOSS
-  PUSH
-}
-
 // ─── Contests (REAL MONEY - Skill-Based, NOT gambling) ──────
 
 model Contest {
-  id          String        @id @default(cuid())
-  creatorId   String
-  title       String
-  description String?
-  entryFee    Decimal       @db.Decimal(10, 2)
-  maxPlayers  Int           @default(10)
-  prizePool   Decimal       @default(0) @db.Decimal(12, 2)
-  platformFee Decimal       @default(0.10) @db.Decimal(4, 3) // 10% default
-  status      ContestStatus @default(OPEN)
-  startTime   DateTime
-  endTime     DateTime
-  result      String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id                   String           @id @default(cuid())
+  creatorId            String
+  title                String
+  description          String?
+  entryFee             Decimal          @db.Decimal(10, 2)
+  maxPlayers           Int              @default(10)
+  prizePool            Decimal          @default(0) @db.Decimal(12, 2)
+  platformFee          Decimal          @default(0.10) @db.Decimal(4, 3)
+  status               ContestStatus    @default(OPEN)
+  visibility           ContestVisibility @default(PUBLIC)
+  autoSettle           Boolean          @default(true)
+  predictionsRequired  Json?
+  startTime            DateTime
+  endTime              DateTime
+  result               String?
+  cancelledAt          DateTime?
+  deletedAt            DateTime?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
 
   creator  User           @relation("ContestCreator", fields: [creatorId], references: [id])
   entries  ContestEntry[]
   event    Event?         @relation(fields: [eventId], references: [id])
   eventId  String?
 
-  @@index([status])
-  @@index([startTime])
-}
-
-enum ContestStatus {
-  DRAFT
-  OPEN
-  LOCKED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
+  @@index([status, startTime])
+  @@index([creatorId])
 }
 
 model ContestEntry {
@@ -312,20 +559,13 @@ model ContestEntry {
   predictions Json
   score       Float           @default(0)
   payout      Decimal         @default(0) @db.Decimal(12, 2)
-  status      EntryStatus     @default(ACTIVE)
+  status      EntryStatus     @default(REGISTERED)
   createdAt   DateTime        @default(now())
 
   contest Contest @relation(fields: [contestId], references: [id])
   user    User    @relation(fields: [userId], references: [id])
 
   @@unique([contestId, userId])
-}
-
-enum EntryStatus {
-  ACTIVE
-  WON
-  LOST
-  REFUNDED
 }
 
 // ─── Social ──────────────────────────────────────────────────
@@ -345,10 +585,138 @@ model Friendship {
   @@index([receiverId])
 }
 
-enum FriendshipStatus {
-  PENDING
-  ACCEPTED
-  BLOCKED
+model Comment {
+  id         String        @id @default(cuid())
+  userId     String
+  targetType CommentTarget
+  targetId   String
+  content    String
+  parentId   String?
+  deletedAt  DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id])
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies  Comment[] @relation("CommentReplies")
+
+  @@index([targetType, targetId, createdAt])
+}
+
+model Reaction {
+  id         String         @id @default(cuid())
+  userId     String
+  targetType ReactionTarget
+  targetId   String
+  emoji      String         @db.VarChar(4)
+  createdAt  DateTime       @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, targetType, targetId, emoji])
+  @@index([targetType, targetId])
+}
+
+model ActivityFeedEntry {
+  id         String         @id @default(cuid())
+  userId     String
+  type       ActivityType
+  targetType ActivityTarget
+  targetId   String
+  metadata   Json?
+  visibility FeedVisibility @default(PUBLIC)
+  createdAt  DateTime       @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([type, createdAt])
+}
+
+// ─── Notifications ───────────────────────────────────────────
+
+model Notification {
+  id         String           @id @default(cuid())
+  userId     String
+  type       NotificationType
+  title      String
+  body       String
+  data       Json?
+  readAt     DateTime?
+  pushSentAt DateTime?
+  createdAt  DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, readAt])
+}
+
+// ─── Achievements ────────────────────────────────────────────
+
+model Achievement {
+  id        String          @id @default(cuid())
+  userId    String
+  type      AchievementType
+  earnedAt  DateTime        @default(now())
+  metadata  Json?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, type])
+}
+
+// ─── Reputation ──────────────────────────────────────────────
+
+model Reputation {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  score         Int      @default(0)
+  predictions   Int      @default(0)
+  correct       Int      @default(0)
+  winRate       Float    @default(0)
+  streak        Int      @default(0)
+  bestStreak    Int      @default(0)
+  lastActiveAt  DateTime?
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+// ─── User Stats (Pre-computed Aggregates) ────────────────────
+
+model UserStats {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  totalBets       Int      @default(0)
+  wonBets         Int      @default(0)
+  lostBets        Int      @default(0)
+  voidBets        Int      @default(0)
+  totalStaked     Decimal  @default(0) @db.Decimal(12, 2)
+  totalWon        Decimal  @default(0) @db.Decimal(12, 2)
+  totalLost       Decimal  @default(0) @db.Decimal(12, 2)
+  netProfit       Decimal  @default(0) @db.Decimal(12, 2)
+  winRate         Float    @default(0)
+  avgOdds         Float?
+  bestWinStreak   Int      @default(0)
+  currentStreak   Int      @default(0)
+  lastBetAt       DateTime?
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+// ─── Event Stats ─────────────────────────────────────────────
+
+model EventStats {
+  id             String   @id @default(cuid())
+  eventId        String   @unique
+  totalBets      Int      @default(0)
+  totalPredictions Int    @default(0)
+  totalStaked    Decimal  @default(0) @db.Decimal(12, 2)
+  uniqueUsers    Int      @default(0)
+  updatedAt      DateTime @updatedAt
+
+  event Event @relation(fields: [eventId], references: [id])
 }
 
 // ─── Virtual Transactions ────────────────────────────────────
@@ -365,21 +733,7 @@ model Transaction {
 
   user User @relation(fields: [userId], references: [id])
 
-  @@index([userId])
-  @@index([createdAt])
-}
-
-enum TransactionType {
-  DEPOSIT
-  WITHDRAWAL
-  BET_PLACED
-  BET_WON
-  BET_LOST
-  BET_CANCELLED
-  DAILY_BONUS
-  REFERRAL_BONUS
-  CUSTOM_BET_ENTRY
-  CUSTOM_BET_WON
+  @@index([userId, createdAt])
 }
 
 // ─── Real Money Transactions ─────────────────────────────────
@@ -397,24 +751,7 @@ model RealTransaction {
 
   user User @relation(fields: [userId], references: [id])
 
-  @@index([userId])
-  @@index([createdAt])
-}
-
-enum RealTransactionType {
-  DEPOSIT
-  WITHDRAWAL
-  CONTEST_ENTRY
-  CONTEST_WIN
-  CONTEST_REFUND
-  REFERRAL_BONUS
-}
-
-enum RealTxStatus {
-  PENDING
-  COMPLETED
-  FAILED
-  REFUNDED
+  @@index([userId, createdAt])
 }
 
 // ─── Leaderboard ─────────────────────────────────────────────
@@ -435,4 +772,34 @@ model LeaderboardEntry {
 
   @@unique([userId, period])
   @@index([period, netProfit(sort: Desc)])
+}
+
+// ─── Sync Jobs ───────────────────────────────────────────────
+
+model SyncJob {
+  id              String       @id @default(cuid())
+  source          DataSource
+  status          SyncJobStatus @default(RUNNING)
+  startedAt       DateTime     @default(now())
+  completedAt     DateTime?
+  eventsProcessed Int?
+  error           String?
+  metadata        Json?
+
+  @@index([source, startedAt])
+}
+
+// ─── Idempotency (financial operations) ──────────────────────
+
+model IdempotencyKey {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  userId    String
+  operation String
+  result    Json?
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+
+  @@index([key])
+  @@index([expiresAt])
 }

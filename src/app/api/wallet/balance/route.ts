@@ -1,20 +1,17 @@
 import { NextResponse } from "next/server";
 import { requireAuthApi } from "@/lib/requireAuth";
-import { prisma } from "@/lib/prisma";
+import { WalletService } from "@/server/services/wallet.service";
+import { handleApiError } from "@/server/middleware/error.middleware";
+
+const walletService = new WalletService();
 
 export async function GET() {
-  const user = await requireAuthApi();
-  if (!user) {
-    return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
+  try {
+    const user = await requireAuthApi();
+    if (!user) return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
+    const balance = await walletService.getBalance(user.id);
+    return NextResponse.json(balance);
+  } catch (error) {
+    return handleApiError(error);
   }
-
-  const dbUser = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { balance: true, realBalance: true },
-  });
-
-  return NextResponse.json({
-    balance: Number(dbUser?.balance ?? 0),
-    realBalance: Number(dbUser?.realBalance ?? 0),
-  });
 }

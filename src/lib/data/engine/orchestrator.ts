@@ -1,15 +1,18 @@
 import { prisma } from "@/lib/prisma";
-import { ISourceAdapter, PipelineResult, SyncJob, DataSource } from "../types";
+import { createChildLogger } from "@/lib/logger";
+import { ISourceAdapter, PipelineResult, DataSource } from "../types";
 import { DataPipeline } from "./pipeline";
 import { OddsEngine } from "./odds-engine";
 import { SettlementEngine } from "./settlement";
 import { TheOddsApiAdapter } from "../sources/the-odds-api";
 import { FootballDataAdapter } from "../sources/football-data";
 
+const log = createChildLogger({ module: "orchestrator" });
+
 /**
  * Data Orchestrator - Central brain that:
  * 1. Manages all source adapters
- * 2. Schedules sync jobs
+ * 2. Schedules sync jobs (persisted to DB)
  * 3. Handles fallbacks between sources
  * 4. Monitors health and performance
  * 5. Triggers settlement
@@ -19,7 +22,6 @@ export class DataOrchestrator {
   private pipeline: DataPipeline;
   private oddsEngine: OddsEngine;
   private settlementEngine: SettlementEngine;
-  private syncHistory: SyncJob[] = [];
 
   constructor() {
     this.pipeline = new DataPipeline();
@@ -28,123 +30,85 @@ export class DataOrchestrator {
     this.registerDefaultSources();
   }
 
-  /**
-   * Register all available data sources
-   */
   private registerDefaultSources() {
-    // The Odds API - primary for odds
     const oddsApiKey = process.env.THE_ODDS_API_KEY;
     if (oddsApiKey) {
-      this.sources.set(
-        "the_odds_api",
-        new TheOddsApiAdapter(oddsApiKey)
-      );
+      this.sources.set("the_odds_api", new TheOddsApiAdapter(oddsApiKey));
     }
 
-    // Football-Data.org - primary for results and fixtures
     const fdApiKey = process.env.FOOTBALL_DATA_API_KEY;
     if (fdApiKey) {
-      this.sources.set(
-        "football_data_org",
-        new FootballDataAdapter(fdApiKey)
-      );
+      this.sources.set("football_data_org", new FootballDataAdapter(fdApiKey));
     }
-
-    // Always have internal as fallback
-    // (manual data entry via admin)
   }
 
-  /**
-   * Full sync from all enabled sources
-   */
   async syncAll(): Promise<PipelineResult[]> {
     const results: PipelineResult[] = [];
 
-    console.log("[Orchestrator] Starting full sync...");
+    log.info("Starting full sync");
 
-    // Sort sources by priority (highest first)
     const sortedSources = Array.from(this.sources.values())
       .filter((s) => s.config.enabled)
       .sort((a, b) => b.config.priority - a.config.priority);
 
     for (const source of sortedSources) {
-      try {
-        console.log(
-          `[Orchestrator] Syncing ${source.config.displayName}...`
-        );
+      const syncJob = await prisma.syncJob.create({
+        data: { source: source.config.name as any, status: "RUNNING" },
+      });
 
-        const job: SyncJob = {
-          id: crypto.randomUUID(),
-          source: source.config.name,
-          status: "running",
-          startedAt: new Date(),
-        };
-        this.syncHistory.push(job);
+      try {
+        log.info({ source: source.config.displayName }, "Syncing source");
 
         const rawData = await source.fetchEvents();
+        let eventsProcessed = 0;
 
         for (const data of rawData) {
           const result = await this.pipeline.processRawData(data);
           results.push(result);
-          job.result = result;
+          eventsProcessed += result.eventsCreated + result.eventsUpdated;
         }
 
-        job.status = "completed";
-        job.completedAt = new Date();
+        await prisma.syncJob.update({
+          where: { id: syncJob.id },
+          data: { status: "COMPLETED", completedAt: new Date(), eventsProcessed },
+        });
+
         source.config.lastSync = new Date();
         source.config.totalSyncs++;
 
-        console.log(
-          `[Orchestrator] ${source.config.displayName} synced: ${
-            rawData.length
-          } batches`
-        );
+        log.info({ source: source.config.displayName, batches: rawData.length }, "Source synced");
       } catch (error) {
-        console.error(
-          `[Orchestrator] ${source.config.displayName} failed:`,
-          error
-        );
+        log.error({ source: source.config.displayName, err: error }, "Source sync failed");
         source.config.errorCount++;
 
-        const job: SyncJob = {
-          id: crypto.randomUUID(),
-          source: source.config.name,
-          status: "failed",
-          error: error instanceof Error ? error.message : "Unknown error",
-          completedAt: new Date(),
-        };
-        this.syncHistory.push(job);
+        await prisma.syncJob.update({
+          where: { id: syncJob.id },
+          data: {
+            status: "FAILED",
+            completedAt: new Date(),
+            error: error instanceof Error ? error.message : "Unknown error",
+          },
+        });
       }
     }
 
-    // After sync, try to settle any finished bets
     try {
       await this.settlementEngine.settleAllPending();
-      console.log("[Orchestrator] Settlement completed");
+      log.info("Settlement completed");
     } catch (error) {
-      console.error("[Orchestrator] Settlement failed:", error);
+      log.error({ err: error }, "Settlement failed");
     }
 
-    console.log(
-      `[Orchestrator] Full sync completed: ${results.length} batches processed`
-    );
-
+    log.info({ batches: results.length }, "Full sync completed");
     return results;
   }
 
-  /**
-   * Sync a specific sport
-   */
   async syncSport(sportSlug: string): Promise<PipelineResult[]> {
     const results: PipelineResult[] = [];
 
     for (const source of this.sources.values()) {
       if (!source.config.enabled) continue;
-      if (
-        source.config.sports.length > 0 &&
-        !source.config.sports.includes(sportSlug)
-      )
-        continue;
+      if (source.config.sports.length > 0 && !source.config.sports.includes(sportSlug)) continue;
 
       try {
         const rawData = await source.fetchEvents(sportSlug);
@@ -153,26 +117,14 @@ export class DataOrchestrator {
           results.push(result);
         }
       } catch (error) {
-        console.error(
-          `[Orchestrator] ${source.config.name} failed for ${sportSlug}:`,
-          error
-        );
+        log.error({ source: source.config.name, sport: sportSlug, err: error }, "Sport sync failed");
       }
     }
 
     return results;
   }
 
-  /**
-   * Get odds from all sources and blend them
-   */
-  async getBlendedOdds(
-    eventId: string,
-    marketSlug: string
-  ): Promise<
-    { outcomeName: string; odds: number; sources: number }[] | null
-  > {
-    // Get current odds from database
+  async getBlendedOdds(eventId: string, marketSlug: string) {
     const market = await prisma.market.findFirst({
       where: { eventId, slug: marketSlug },
       include: { outcomes: true },
@@ -183,44 +135,12 @@ export class DataOrchestrator {
     return market.outcomes.map((o) => ({
       outcomeName: o.name,
       odds: Number(o.odds),
-      sources: 1, // TODO: track source count
+      sources: 1,
     }));
   }
 
-  /**
-   * Get system health and status
-   */
-  async getSystemStatus(): Promise<{
-    sources: {
-      name: string;
-      displayName: string;
-      enabled: boolean;
-      lastSync: string | null;
-      errorCount: number;
-      totalSyncs: number;
-      reliability: number;
-      healthy: boolean;
-    }[];
-    stats: {
-      totalEvents: number;
-      totalMarkets: number;
-      totalOutcomes: number;
-      upcomingEvents: number;
-      liveEvents: number;
-      settledBets: number;
-      pendingBets: number;
-    };
-    recentJobs: SyncJob[];
-  }> {
-    const [
-      totalEvents,
-      totalMarkets,
-      totalOutcomes,
-      upcomingEvents,
-      liveEvents,
-      settledBets,
-      pendingBets,
-    ] = await Promise.all([
+  async getSystemStatus() {
+    const [totalEvents, totalMarkets, totalOutcomes, upcomingEvents, liveEvents, settledBets, pendingBets, recentJobs] = await Promise.all([
       prisma.event.count(),
       prisma.market.count(),
       prisma.outcome.count(),
@@ -228,6 +148,7 @@ export class DataOrchestrator {
       prisma.event.count({ where: { status: "LIVE" } }),
       prisma.bet.count({ where: { settled: true } }),
       prisma.bet.count({ where: { settled: false } }),
+      prisma.syncJob.findMany({ orderBy: { startedAt: "desc" }, take: 20 }),
     ]);
 
     const sources = Array.from(this.sources.values()).map((s) => ({
@@ -243,29 +164,26 @@ export class DataOrchestrator {
 
     return {
       sources,
-      stats: {
-        totalEvents,
-        totalMarkets,
-        totalOutcomes,
-        upcomingEvents,
-        liveEvents,
-        settledBets,
-        pendingBets,
-      },
-      recentJobs: this.syncHistory.slice(-20),
+      stats: { totalEvents, totalMarkets, totalOutcomes, upcomingEvents, liveEvents, settledBets, pendingBets },
+      recentJobs: recentJobs.map((j) => ({
+        id: j.id,
+        source: j.source,
+        status: j.status.toLowerCase(),
+        startedAt: j.startedAt,
+        completedAt: j.completedAt,
+        eventsProcessed: j.eventsProcessed,
+        error: j.error,
+      })),
     };
   }
 
-  /**
-   * Force settlement of specific event
-   */
   async forceSettleEvent(eventId: string): Promise<number> {
     const event = await prisma.event.findUnique({
       where: { id: eventId },
       include: {
         markets: {
           include: {
-            bets: { where: { settled: false } },
+            bets: { where: { settled: false }, include: { outcome: true, market: true } },
           },
         },
       },
@@ -278,40 +196,31 @@ export class DataOrchestrator {
     let settled = 0;
     for (const market of event.markets) {
       for (const bet of market.bets) {
-        await prisma.bet.update({
-          where: { id: bet.id },
-          data: { settled: true, status: "PENDING" },
-        });
-        settled++;
+        try {
+          await this.settlementEngine.settleBet(bet, event);
+          settled++;
+        } catch (error) {
+          log.error({ betId: bet.id, err: error }, "Error force-settling bet");
+        }
       }
     }
 
     return settled;
   }
 
-  /**
-   * Add a custom/manual source adapter
-   */
   registerSource(source: ISourceAdapter) {
     this.sources.set(source.config.name, source);
   }
 
-  /**
-   * Get odds engine for calculations
-   */
   getOddsEngine(): OddsEngine {
     return this.oddsEngine;
   }
 
-  /**
-   * Get settlement engine
-   */
   getSettlementEngine(): SettlementEngine {
     return this.settlementEngine;
   }
 }
 
-// Singleton
 let orchestratorInstance: DataOrchestrator | null = null;
 
 export function getOrchestrator(): DataOrchestrator {

@@ -9,7 +9,7 @@ export default async function InvitePage() {
 
   const user = await prisma.user.findUnique({
     where: { id: session!.user!.id },
-    select: { inviteCode: true, balance: true },
+    select: { inviteCode: true },
   });
 
   const referralCount = await prisma.user.count({

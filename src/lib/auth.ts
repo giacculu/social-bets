@@ -14,7 +14,15 @@ declare module "next-auth" {
       balance?: number;
       realBalance?: number;
       inviteCode?: string;
+      role?: "USER" | "MODERATOR" | "ADMIN" | "SUPER_ADMIN";
     };
+  }
+}
+
+declare module "@auth/core/jwt" {
+  interface JWT {
+    id?: string;
+    role?: "USER" | "MODERATOR" | "ADMIN" | "SUPER_ADMIN";
   }
 }
 
@@ -58,6 +66,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        // Set role at sign-in time — session callback keeps it fresh for UI
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { role: true },
+        });
+        if (dbUser) {
+          token.role = dbUser.role;
+        }
       }
       return token;
     },
@@ -65,7 +81,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (token?.id) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { id: true, email: true, username: true, name: true, balance: true, realBalance: true, avatarUrl: true, inviteCode: true },
+          select: { id: true, email: true, username: true, name: true, avatarUrl: true, inviteCode: true, role: true },
+        });
+        const wallet = await prisma.wallet.findUnique({
+          where: { userId: token.id as string },
+          select: { balance: true },
         });
         if (dbUser) {
           session.user.id = dbUser.id;
@@ -73,9 +93,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           session.user.name = dbUser.name;
           session.user.image = dbUser.avatarUrl;
           (session.user as any).username = dbUser.username;
-          (session.user as any).balance = Number(dbUser.balance);
-          (session.user as any).realBalance = Number(dbUser.realBalance);
+          (session.user as any).balance = Number(wallet?.balance ?? 10000);
+          (session.user as any).realBalance = Number(wallet?.balance ?? 0);
           (session.user as any).inviteCode = dbUser.inviteCode;
+          (session.user as any).role = dbUser.role;
         }
       }
       return session;

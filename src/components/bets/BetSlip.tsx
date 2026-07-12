@@ -59,7 +59,6 @@ export function BetSlip() {
               marketId: s.marketId,
               outcomeId: s.outcomeId,
               stake: stakeNum / selections.length,
-              odds: s.odds,
             }),
           }).then((r) => r.json())
         )

@@ -10,6 +10,7 @@ export default async function WalletPage() {
   const user = await prisma.user.findUnique({
     where: { id: session!.user!.id },
     include: {
+      wallet: true,
       transactions: {
         orderBy: { createdAt: "desc" },
         take: 30,
@@ -78,7 +79,7 @@ export default async function WalletPage() {
             <span className="text-sm text-emerald-400">Saldo Virtuale</span>
           </div>
           <p className="text-4xl font-bold text-emerald-400">
-            {formatCurrency(Number(user.balance))}
+            {formatCurrency(Number(user?.wallet?.balance ?? 0))}
           </p>
           <p className="mt-2 text-xs text-gray-500">Moneta gioco per scommesse virtuali</p>
         </div>
@@ -89,7 +90,7 @@ export default async function WalletPage() {
             <span className="text-sm text-yellow-400">Saldo Reale</span>
           </div>
           <p className="text-4xl font-bold text-yellow-400">
-            {formatCurrency(Number(user.realBalance))}
+            {formatCurrency(Number(user?.wallet?.balance ?? 0))}
           </p>
           <p className="mt-2 text-xs text-gray-500">Soldi reali per le Contest</p>
           <div className="mt-3 flex gap-2">

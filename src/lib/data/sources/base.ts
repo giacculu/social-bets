@@ -1,4 +1,7 @@
 import { ISourceAdapter, RawSportData, SourceConfig } from "../types";
+import { createChildLogger } from "@/lib/logger";
+
+const log = createChildLogger({ module: "source" });
 
 /**
  * Base class for all source adapters with common functionality
@@ -37,9 +40,7 @@ export abstract class BaseSourceAdapter implements ISourceAdapter {
     ) {
       const waitMs =
         this.config.rateLimit.perSeconds * 1000 - (Date.now() - this.windowStart);
-      console.log(
-        `[${this.config.name}] Rate limited, waiting ${waitMs}ms`
-      );
+      log.debug({ source: this.config.name, waitMs }, "Rate limited");
       await new Promise((r) => setTimeout(r, waitMs));
       this.requestCount = 0;
       this.windowStart = Date.now();

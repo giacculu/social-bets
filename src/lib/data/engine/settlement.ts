@@ -1,16 +1,18 @@
 import { prisma } from "@/lib/prisma";
-import { prisma as prismaClient } from "@/lib/prisma";
+import { createChildLogger } from "@/lib/logger";
 import { SettlementResult } from "../types";
 import { OddsEngine } from "./odds-engine";
 
+const log = createChildLogger({ module: "settlement" });
+
 /**
  * Settlement Engine - Automatically resolves bets when events finish.
- * 
+ *
  * Flow:
  * 1. Detect finished events that haven't been settled
  * 2. Match outcomes to determine results
- * 3. Calculate payouts and update balances
- * 4. Create transaction records
+ * 3. Calculate payouts and update balances (atomic)
+ * 4. Create transaction records with balance snapshots
  * 5. Update leaderboard
  */
 export class SettlementEngine {
@@ -20,19 +22,13 @@ export class SettlementEngine {
     this.oddsEngine = OddsEngine.getInstance();
   }
 
-  /**
-   * Find and settle all pending bets for finished events
-   */
   async settleAllPending(): Promise<SettlementResult[]> {
     const results: SettlementResult[] = [];
 
-    // Find events that are FINISHED but have unsettled bets
-    const finishedEvents = await prismaClient.event.findMany({
+    const finishedEvents = await prisma.event.findMany({
       where: {
         status: "FINISHED",
-        bets: {
-          some: { settled: false },
-        },
+        bets: { some: { settled: false } },
       },
       include: {
         markets: {
@@ -40,7 +36,7 @@ export class SettlementEngine {
             outcomes: true,
             bets: {
               where: { settled: false },
-              include: { user: true },
+              include: { outcome: true, market: true },
             },
           },
         },
@@ -54,25 +50,12 @@ export class SettlementEngine {
             const result = await this.settleBet(bet, event);
             if (result) results.push(result);
           } catch (error) {
-            console.error(
-              `[Settlement] Error settling bet ${bet.id}:`,
-              error
-            );
+            log.error({ betId: bet.id, err: error }, "Error settling bet");
           }
         }
       }
-
-      // Mark all bets in this event as settled
-      await prismaClient.bet.updateMany({
-        where: {
-          eventId: event.id,
-          settled: false,
-        },
-        data: { settled: true },
-      });
     }
 
-    // Update leaderboard
     if (results.length > 0) {
       await this.updateLeaderboard(results);
     }
@@ -80,18 +63,11 @@ export class SettlementEngine {
     return results;
   }
 
-  /**
-   * Settle a single bet
-   */
-  private async settleBet(
-    bet: any,
-    event: any
-  ): Promise<SettlementResult | null> {
+  async settleBet(bet: any, event: any): Promise<SettlementResult | null> {
     if (bet.settled) return null;
 
-    // Determine if this bet won based on event result
     const won = this.determineResult(bet, event);
-    const result = won ? "WIN" : "LOSS" as const;
+    const result: "WIN" | "LOSS" = won ? "WIN" : "LOSS";
 
     let payout = 0;
     let profit = 0;
@@ -104,77 +80,62 @@ export class SettlementEngine {
       profit = -Number(bet.stake);
     }
 
-    // Update bet status
-    await prismaClient.bet.update({
-      where: { id: bet.id },
-      data: {
-        status: won ? "WON" : "LOST",
-        result: result,
-      },
+    // Atomic: update bet + wallet + transaction in a single transaction
+    await prisma.$transaction(async (tx) => {
+      // 1. Update bet status
+      await tx.bet.update({
+        where: { id: bet.id },
+        data: {
+          status: won ? "WON" : "LOST",
+          result,
+          settled: true,
+          settledAt: new Date(),
+        },
+      });
+
+      // 2. Get current wallet for balance snapshot
+      const wallet = await tx.wallet.findUnique({
+        where: { userId: bet.userId },
+      });
+      const currentBalance = Number(wallet?.balance ?? 0);
+
+      // 3. Update wallet balance
+      if (won) {
+        await tx.wallet.update({
+          where: { userId: bet.userId },
+          data: { balance: { increment: payout } },
+        });
+      }
+
+      // 4. Create transaction record with accurate balance snapshot
+      await tx.transaction.create({
+        data: {
+          userId: bet.userId,
+          type: won ? "BET_WON" : "BET_LOST",
+          amount: won ? payout : 0,
+          balance: won ? currentBalance + payout : currentBalance,
+          reference: won ? `Vincita scommessa #${bet.id}` : `Scommessa persa #${bet.id}`,
+        },
+      });
     });
 
-    // Update user balance
-    if (won) {
-      await prismaClient.user.update({
-        where: { id: bet.userId },
-        data: { balance: { increment: payout } },
-      });
-
-      // Create winning transaction
-      await prismaClient.transaction.create({
-        data: {
-          userId: bet.userId,
-          type: "BET_WON",
-          amount: payout,
-          balance: 0, // Will be calculated
-          reference: `Vincita scommessa #${bet.id}`,
-        },
-      });
-    } else {
-      // Create losing transaction (balance deduction was already made when bet was placed)
-      await prismaClient.transaction.create({
-        data: {
-          userId: bet.userId,
-          type: "BET_LOST",
-          amount: 0,
-          balance: 0,
-          reference: `Scommessa persa #${bet.id}`,
-        },
-      });
-    }
-
-    return {
-      betId: bet.id,
-      userId: bet.userId,
-      stake: Number(bet.stake),
-      odds: Number(bet.odds),
-      result,
-      payout,
-      profit,
-    };
+    return { betId: bet.id, userId: bet.userId, stake: Number(bet.stake), odds: Number(bet.odds), result, payout, profit };
   }
 
-  /**
-   * Determine if a bet won based on the event's result
-   */
   private determineResult(bet: any, event: any): boolean {
-    // Get the winning outcome based on event result
-    const { scoreHome, scoreAway, result: eventResult } = event;
+    const { scoreHome, scoreAway } = event;
 
     if (scoreHome === null || scoreAway === null) return false;
 
-    // Get the outcome details
     const outcome = bet.outcome;
     if (!outcome) return false;
 
     const market = bet.market;
     if (!market) return false;
 
-    // Different logic based on market type
     switch (market.type) {
       case "MATCH_RESULT":
         return this.checkMatchResult(outcome.slug, scoreHome, scoreAway);
-
       case "OVER_UNDER": {
         const total = scoreHome + scoreAway;
         const line = this.extractLine(market.slug);
@@ -182,12 +143,10 @@ export class SettlementEngine {
         if (outcome.slug === "under") return total < line;
         return false;
       }
-
       case "BOTH_TEAMS_SCORE":
         if (outcome.slug === "yes") return scoreHome > 0 && scoreAway > 0;
         if (outcome.slug === "no") return scoreHome === 0 || scoreAway === 0;
         return false;
-
       case "DOUBLE_CHANCE": {
         const homeWin = scoreHome > scoreAway;
         const draw = scoreHome === scoreAway;
@@ -197,72 +156,45 @@ export class SettlementEngine {
         if (outcome.slug === "12") return homeWin || awayWin;
         return false;
       }
-
       case "CORRECT_SCORE": {
         const expectedScore = outcome.slug;
         return `${scoreHome}-${scoreAway}` === expectedScore;
       }
-
       default:
-        // For custom/unknown markets, check if the outcome name matches the result
         return false;
     }
   }
 
-  private checkMatchResult(
-    outcomeSlug: string,
-    scoreHome: number,
-    scoreAway: number
-  ): boolean {
+  private checkMatchResult(outcomeSlug: string, scoreHome: number, scoreAway: number): boolean {
     const homeWin = scoreHome > scoreAway;
     const draw = scoreHome === scoreAway;
     const awayWin = scoreHome < scoreAway;
 
     switch (outcomeSlug) {
-      case "home":
-      case "1":
-        return homeWin;
-      case "draw":
-      case "x":
-        return draw;
-      case "away":
-      case "2":
-        return awayWin;
-      default:
-        return false;
+      case "home": case "1": return homeWin;
+      case "draw": case "x": return draw;
+      case "away": case "2": return awayWin;
+      default: return false;
     }
   }
 
   private extractLine(marketSlug: string): number {
-    // Extract numeric line from slug like "over-under-2-5" -> 2.5
     const match = marketSlug.match(/(\d+)[-_]?(\d+)?/);
     if (match) {
       const whole = parseInt(match[1]);
       const decimal = match[2] ? parseInt(match[2]) : 0;
       return whole + decimal / 10;
     }
-    return 2.5; // Default line
+    return 2.5;
   }
 
-  /**
-   * Update leaderboard after settlements
-   */
   private async updateLeaderboard(results: SettlementResult[]): Promise<void> {
     const period = this.getCurrentPeriod();
 
-    // Group results by user
-    const userStats = new Map<
-      string,
-      { won: number; lost: number; profit: number; bets: number }
-    >();
+    const userStats = new Map<string, { won: number; lost: number; profit: number; bets: number }>();
 
     for (const r of results) {
-      const existing = userStats.get(r.userId) || {
-        won: 0,
-        lost: 0,
-        profit: 0,
-        bets: 0,
-      };
+      const existing = userStats.get(r.userId) || { won: 0, lost: 0, profit: 0, bets: 0 };
       existing.bets++;
       existing.profit += r.profit;
       if (r.result === "WIN") existing.won++;
@@ -270,12 +202,11 @@ export class SettlementEngine {
       userStats.set(r.userId, existing);
     }
 
-    // Upsert leaderboard entries
     for (const [userId, stats] of userStats) {
       const totalBets = stats.won + stats.lost;
       const winRate = totalBets > 0 ? stats.won / totalBets : 0;
 
-      await prismaClient.leaderboardEntry.upsert({
+      await prisma.leaderboardEntry.upsert({
         where: { userId_period: { userId, period } },
         update: {
           totalWon: { increment: stats.won },
@@ -296,14 +227,13 @@ export class SettlementEngine {
       });
     }
 
-    // Recalculate ranks
-    const entries = await prismaClient.leaderboardEntry.findMany({
+    const entries = await prisma.leaderboardEntry.findMany({
       where: { period },
       orderBy: { netProfit: "desc" },
     });
 
     for (let i = 0; i < entries.length; i++) {
-      await prismaClient.leaderboardEntry.update({
+      await prisma.leaderboardEntry.update({
         where: { id: entries[i].id },
         data: { rank: i + 1 },
       });
@@ -312,10 +242,8 @@ export class SettlementEngine {
 
   private getCurrentPeriod(): string {
     const now = new Date();
-    return `${now.getFullYear()}-W${Math.ceil(
-      now.getDate() / 7
-    )
-      .toString()
-      .padStart(2, "0")}`;
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const weekNumber = Math.ceil(((now.getTime() - startOfYear.getTime()) / 86400000 + startOfYear.getDay() + 1) / 7);
+    return `${now.getFullYear()}-W${String(weekNumber).padStart(2, "0")}`;
   }
 }

@@ -1,5 +1,8 @@
 import { BaseSourceAdapter } from "./base";
 import { RawSportData, RawEventData, SourceConfig } from "../types";
+import { createChildLogger } from "@/lib/logger";
+
+const log = createChildLogger({ module: "source:the-odds-api" });
 
 /**
  * The Odds API Adapter
@@ -70,7 +73,7 @@ export class TheOddsApiAdapter extends BaseSourceAdapter {
         if (data) results.push(data);
         await this.delay(1000); // Be nice to the API
       } catch (error) {
-        console.error(`[TheOddsAPI] Error fetching ${sportKey}:`, error);
+        log.error({ sportKey, err: error }, "Error fetching sport");
       }
     }
 

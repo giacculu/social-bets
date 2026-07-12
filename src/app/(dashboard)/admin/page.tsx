@@ -1,8 +1,8 @@
 import { getOrchestrator } from "@/lib/data/engine/orchestrator";
-import { requireAuth } from "@/lib/requireAuth";
+import { requireAdmin } from "@/lib/requireAuth";
 
 export default async function AdminPage() {
-  await requireAuth();
+  await requireAdmin();
 
   const orchestrator = getOrchestrator();
   const status = await orchestrator.getSystemStatus();

@@ -270,14 +270,15 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: "admin@socialbets.com" },
-    update: {},
+    update: { role: "ADMIN" },
     create: {
       email: "admin@socialbets.com",
       username: "admin",
       name: "Admin",
       passwordHash: adminHash,
-      balance: 100000,
       inviteCode: adminInvite,
+      role: "ADMIN",
+      wallet: { create: { balance: 100000 } },
     },
   });
 
@@ -298,8 +299,8 @@ async function main() {
         username: u.username,
         name: u.name,
         passwordHash: hash,
-        balance: 10000,
         inviteCode: u.username.toUpperCase() + Math.random().toString(36).slice(2, 8).toUpperCase(),
+        wallet: { create: { balance: 10000 } },
       },
     });
   }

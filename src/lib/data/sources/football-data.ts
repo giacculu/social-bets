@@ -1,5 +1,8 @@
 import { BaseSourceAdapter } from "./base";
 import { RawSportData, RawEventData } from "../types";
+import { createChildLogger } from "@/lib/logger";
+
+const log = createChildLogger({ module: "source:football-data" });
 
 /**
  * Football-Data.org Adapter
@@ -53,7 +56,7 @@ export class FootballDataAdapter extends BaseSourceAdapter {
         if (data) results.push(data);
         await this.delay(7000); // Respect rate limit (10/min)
       } catch (error) {
-        console.error(`[FootballData] Error fetching ${slug}:`, error);
+        log.error({ slug, err: error }, "Error fetching competition");
       }
     }
 

@@ -7,6 +7,9 @@ import {
   DataSource,
 } from "../types";
 import { OddsEngine } from "./odds-engine";
+import { createChildLogger } from "@/lib/logger";
+
+const log = createChildLogger({ module: "pipeline" });
 
 /**
  * Core Data Pipeline - Normalizes, validates, deduplicates, and stores
@@ -67,7 +70,7 @@ export class DataPipeline {
             error instanceof Error ? error.message : "Unknown error"
           }`;
           result.errors.push(msg);
-          console.error(`[Pipeline] ${msg}`);
+          log.error({ err: error, event: `${rawEvent.homeTeam} vs ${rawEvent.awayTeam}` }, "Event processing error");
         }
       }
 
@@ -296,8 +299,9 @@ export class DataPipeline {
     result: PipelineResult
   ) {
     // Store sync log in a JSON metadata field on Sport (or a separate table)
-    console.log(
-      `[Pipeline] ${source}: ${result.eventsCreated} created, ${result.eventsUpdated} updated, ${result.marketsCreated} markets, ${result.outcomesCreated} outcomes in ${result.duration}ms`
+    log.info(
+      { source, created: result.eventsCreated, updated: result.eventsUpdated, markets: result.marketsCreated, outcomes: result.outcomesCreated, duration: result.duration },
+      "Pipeline sync"
     );
   }
 }
