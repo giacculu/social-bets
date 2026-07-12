@@ -5,6 +5,8 @@ import { Activity, Trophy, Swords, Target, UserPlus, Zap } from "lucide-react";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { TimeAgo } from "@/components/shared/TimeAgo";
 
+export const dynamic = "force-dynamic";
+
 const activityIcons: Record<string, typeof Activity> = {
   BET_PLACED: Target,
   BET_WON: Trophy,

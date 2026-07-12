@@ -7,6 +7,8 @@ import { PredictionStats } from "@/components/features/predictions/PredictionSta
 import { PredictionFilters, type PredictionFilter } from "@/components/features/predictions/PredictionFilters";
 import { EmptyState } from "@/components/shared/EmptyState";
 
+export const dynamic = "force-dynamic";
+
 export default async function PredictionsPage({
   searchParams,
 }: {

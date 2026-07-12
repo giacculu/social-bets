@@ -6,6 +6,8 @@ import { LeaderboardPeriodTabs, type LeaderboardPeriod } from "@/components/feat
 import { LeaderboardPodium } from "@/components/features/leaderboard/LeaderboardPodium";
 import { EmptyState } from "@/components/shared/EmptyState";
 
+export const dynamic = "force-dynamic";
+
 function getPeriodRange(period: LeaderboardPeriod): { start: Date; end: Date; label: string } {
   const now = new Date();
   if (period === "week") {

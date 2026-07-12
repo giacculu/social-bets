@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import { User, Calendar, MapPin, Trophy, Target, TrendingUp } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default async function ProfilePage() {
   const session = await auth();
 

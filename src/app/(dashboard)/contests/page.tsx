@@ -4,6 +4,8 @@ import { Trophy, Plus } from "lucide-react";
 import Link from "next/link";
 import { ContestsListClient } from "./ContestsListClient";
 
+export const dynamic = "force-dynamic";
+
 export default async function ContestsPage({
   searchParams,
 }: {

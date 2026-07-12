@@ -6,6 +6,8 @@ import Link from "next/link";
 import { BetSlip } from "@/components/bets/BetSlip";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 
+export const dynamic = "force-dynamic";
+
 export default async function EventDetailPage({
   params,
 }: {

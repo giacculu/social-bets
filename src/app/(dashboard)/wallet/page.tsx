@@ -4,6 +4,8 @@ import { formatCurrency } from "@/lib/utils";
 import { Wallet, ArrowUpRight, ArrowDownRight, Gift, Banknote, Plus, Minus } from "lucide-react";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 export default async function WalletPage() {
   const session = await auth();
 

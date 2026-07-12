@@ -4,6 +4,8 @@ import { formatCurrency } from "@/lib/utils";
 import { Gift, Copy, Users, Link as LinkIcon, CheckCircle } from "lucide-react";
 import { InviteClient } from "./InviteClient";
 
+export const dynamic = "force-dynamic";
+
 export default async function InvitePage() {
   const session = await auth();
 

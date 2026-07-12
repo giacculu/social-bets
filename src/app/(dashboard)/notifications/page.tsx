@@ -5,6 +5,8 @@ import { formatDate } from "@/lib/utils";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { TimeAgo } from "@/components/shared/TimeAgo";
 
+export const dynamic = "force-dynamic";
+
 const notifIcons: Record<string, typeof Bell> = {
   BET_WON: Trophy,
   BET_SETTLED: Target,

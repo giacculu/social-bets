@@ -5,6 +5,8 @@ import { Calendar, Clock } from "lucide-react";
 import { BetSlip } from "@/components/bets/BetSlip";
 import { OutcomeButton } from "@/components/features/events/OutcomeButton";
 
+export const dynamic = "force-dynamic";
+
 export default async function LeaguePage({
   params,
   searchParams,

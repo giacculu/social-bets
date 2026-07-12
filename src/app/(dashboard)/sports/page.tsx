@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Calendar, ChevronRight } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+
 export default async function SportsPage() {
   const sports = await prisma.sport.findMany({
     where: { active: true },
