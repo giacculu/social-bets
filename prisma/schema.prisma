@@ -1,0 +1,335 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Auth & Users ────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  username      String    @unique
+  name          String?
+  avatarUrl     String?
+  passwordHash  String
+  balance       Decimal   @default(10000) @db.Decimal(12, 2)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  bets                  Bet[]
+  customBetsCreated     CustomBet[]            @relation("CustomBetCreator")
+  customBetParticipants CustomBetParticipant[]
+  transactions          Transaction[]
+  friendshipsSent       Friendship[]           @relation("FriendshipInitiator")
+  friendshipsReceived   Friendship[]           @relation("FriendshipReceiver")
+  leaderboardEntries    LeaderboardEntry[]
+}
+
+// ─── Sports Data ─────────────────────────────────────────────
+
+model Sport {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  icon      String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  leagues League[]
+}
+
+model League {
+  id        String   @id @default(cuid())
+  sportId   String
+  name      String
+  slug      String
+  country   String?
+  logoUrl   String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  sport   Sport    @relation(fields: [sportId], references: [id])
+  events  Event[]
+
+  @@unique([sportId, slug])
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logoUrl   String?
+  sportId   String
+  createdAt DateTime @default(now())
+
+  homeEvents Event[] @relation("HomeTeam")
+  awayEvents Event[] @relation("AwayTeam")
+
+  @@index([sportId])
+}
+
+model Event {
+  id            String    @id @default(cuid())
+  leagueId      String
+  externalId    String?   @unique
+  homeTeamId    String?
+  awayTeamId    String?
+  homeTeamName  String
+  awayTeamName  String
+  startTime     DateTime
+  status        EventStatus @default(UPCOMING)
+  result        String?
+  scoreHome      Int?
+  scoreAway      Int?
+  slug          String?
+  metadata      Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  league   League   @relation(fields: [leagueId], references: [id])
+  homeTeam Team?    @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeam Team?    @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  markets  Market[]
+  bets     Bet[]
+
+  @@index([leagueId])
+  @@index([startTime])
+  @@index([status])
+}
+
+enum EventStatus {
+  UPCOMING
+  LIVE
+  FINISHED
+  CANCELLED
+  POSTPONED
+}
+
+// ─── Markets & Odds ──────────────────────────────────────────
+
+model Market {
+  id          String        @id @default(cuid())
+  eventId     String
+  name        String
+  slug        String
+  type        MarketType
+  status      MarketStatus  @default(OPEN)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  event    Event      @relation(fields: [eventId], references: [id])
+  bets     Bet[]
+  outcomes Outcome[]
+
+  @@unique([eventId, slug])
+  @@index([eventId])
+}
+
+enum MarketType {
+  MATCH_RESULT
+  OVER_UNDER
+  BOTH_TEAMS_SCORE
+  HANDICAP
+  FIRST_SCORER
+  CORRECT_SCORE
+  DOUBLE_CHANCE
+  CUSTOM
+}
+
+enum MarketStatus {
+  OPEN
+  SUSPENDED
+  CLOSED
+  SETTLED
+}
+
+model Outcome {
+  id          String   @id @default(cuid())
+  marketId    String
+  name        String
+  slug        String
+  odds        Decimal  @db.Decimal(8, 2)
+  probability Float?
+  settled     Boolean  @default(false)
+  result      Boolean?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  market Market @relation(fields: [marketId], references: [id])
+  bets   Bet[]
+
+  @@unique([marketId, slug])
+  @@index([marketId])
+}
+
+// ─── Bets ────────────────────────────────────────────────────
+
+model Bet {
+  id          String    @id @default(cuid())
+  userId      String
+  eventId     String
+  marketId    String
+  outcomeId   String
+  stake       Decimal   @db.Decimal(10, 2)
+  odds        Decimal   @db.Decimal(8, 2)
+  potentialWin Decimal  @db.Decimal(10, 2)
+  status      BetStatus @default(PENDING)
+  settled     Boolean   @default(false)
+  result      BetResult?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id])
+  event   Event   @relation(fields: [eventId], references: [id])
+  market  Market  @relation(fields: [marketId], references: [id])
+  outcome Outcome @relation(fields: [outcomeId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
+enum BetStatus {
+  PENDING
+  WON
+  LOST
+  CASHOUT
+  CANCELLED
+}
+
+enum BetResult {
+  WIN
+  LOSS
+  PUSH
+}
+
+// ─── Custom Bets ─────────────────────────────────────────────
+
+model CustomBet {
+  id          String          @id @default(cuid())
+  creatorId   String
+  title       String
+  description String?
+  stake       Decimal         @db.Decimal(10, 2)
+  deadline    DateTime
+  status      CustomBetStatus @default(PENDING)
+  result      String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  creator      User                  @relation("CustomBetCreator", fields: [creatorId], references: [id])
+  participants CustomBetParticipant[]
+}
+
+enum CustomBetStatus {
+  PENDING
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model CustomBetParticipant {
+  id          String   @id @default(cuid())
+  customBetId String
+  userId      String
+  prediction  String
+  status      ParticipantStatus @default(PENDING)
+  result      ParticipantResult?
+  createdAt   DateTime @default(now())
+
+  customBet CustomBet @relation(fields: [customBetId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
+
+  @@unique([customBetId, userId])
+}
+
+enum ParticipantStatus {
+  PENDING
+  ACCEPTED
+  WON
+  LOST
+}
+
+enum ParticipantResult {
+  WIN
+  LOSS
+  PUSH
+}
+
+// ─── Social ──────────────────────────────────────────────────
+
+model Friendship {
+  id          String           @id @default(cuid())
+  initiatorId String
+  receiverId  String
+  status      FriendshipStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  initiator User @relation("FriendshipInitiator", fields: [initiatorId], references: [id])
+  receiver  User @relation("FriendshipReceiver", fields: [receiverId], references: [id])
+
+  @@unique([initiatorId, receiverId])
+  @@index([receiverId])
+}
+
+enum FriendshipStatus {
+  PENDING
+  ACCEPTED
+  BLOCKED
+}
+
+// ─── Transactions ────────────────────────────────────────────
+
+model Transaction {
+  id        String          @id @default(cuid())
+  userId    String
+  type      TransactionType
+  amount    Decimal         @db.Decimal(12, 2)
+  balance   Decimal         @db.Decimal(12, 2)
+  reference String?
+  metadata  Json?
+  createdAt DateTime        @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  BET_PLACED
+  BET_WON
+  BET_LOST
+  BET_CANCELLED
+  DAILY_BONUS
+  REFERRAL_BONUS
+  CUSTOM_BET_ENTRY
+  CUSTOM_BET_WON
+}
+
+// ─── Leaderboard ─────────────────────────────────────────────
+
+model LeaderboardEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  period    String
+  totalWon  Decimal  @default(0) @db.Decimal(12, 2)
+  totalLost Decimal  @default(0) @db.Decimal(12, 2)
+  netProfit Decimal  @default(0) @db.Decimal(12, 2)
+  winRate   Float    @default(0)
+  betCount  Int      @default(0)
+  rank      Int?
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, period])
+  @@index([period, netProfit(sort: Desc)])
+}
