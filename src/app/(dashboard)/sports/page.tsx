@@ -11,7 +11,7 @@ export default async function SportsPage() {
         where: { active: true },
         include: {
           events: {
-            where: { status: { in: ["UPCOMING", "LIVE"] } },
+            where: { status: "UPCOMING" },
             orderBy: { startTime: "asc" },
             take: 3,
           },

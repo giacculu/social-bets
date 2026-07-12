@@ -12,6 +12,8 @@ declare module "next-auth" {
       image?: string | null;
       username?: string;
       balance?: number;
+      realBalance?: number;
+      inviteCode?: string;
     };
   }
 }
@@ -63,7 +65,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (token?.id) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { id: true, email: true, username: true, name: true, balance: true, avatarUrl: true },
+          select: { id: true, email: true, username: true, name: true, balance: true, realBalance: true, avatarUrl: true, inviteCode: true },
         });
         if (dbUser) {
           session.user.id = dbUser.id;
@@ -72,6 +74,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           session.user.image = dbUser.avatarUrl;
           (session.user as any).username = dbUser.username;
           (session.user as any).balance = Number(dbUser.balance);
+          (session.user as any).realBalance = Number(dbUser.realBalance);
+          (session.user as any).inviteCode = dbUser.inviteCode;
         }
       }
       return session;

@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, Suspense } from "react";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
-  const [form, setForm] = useState({ username: "", email: "", password: "", name: "" });
+  const searchParams = useSearchParams();
+  const ref = searchParams.get("ref") || "";
+  const [form, setForm] = useState({ username: "", email: "", password: "", name: "", inviteCode: ref });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -107,6 +109,24 @@ export default function RegisterPage() {
             />
           </div>
 
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-300">
+              Codice invito {ref ? "(dal tuo amico)" : "(opzionale)"}
+            </label>
+            <input
+              type="text"
+              value={form.inviteCode}
+              onChange={(e) => setForm({ ...form, inviteCode: e.target.value })}
+              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-white placeholder-gray-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              placeholder="Codice invito"
+            />
+            {ref && (
+              <p className="mt-1 text-xs text-emerald-400">
+                Sei stato invitato! Il tuo amico guadagnerà 500€
+              </p>
+            )}
+          </div>
+
           <button
             type="submit"
             disabled={loading}
@@ -124,5 +144,13 @@ export default function RegisterPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterForm />
+    </Suspense>
   );
 }

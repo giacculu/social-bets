@@ -17,6 +17,11 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { realBalance: true },
+  });
+
   const sports = await prisma.sport.findMany({
     where: { active: true },
     include: { leagues: { where: { active: true } } },
@@ -38,6 +43,9 @@ export default async function DashboardLayout({
             <Link href="/sports" className="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
               Sport
             </Link>
+            <Link href="/contests" className="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
+              Contest
+            </Link>
             <Link href="/bets" className="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
               Le Mie Scommesse
             </Link>
@@ -47,13 +55,16 @@ export default async function DashboardLayout({
             <Link href="/friends" className="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
               Amici
             </Link>
+            <Link href="/invite" className="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
+              Invita
+            </Link>
             <Link href="/leaderboard" className="rounded-lg px-3 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800 hover:text-white transition-colors">
               Classifica
             </Link>
           </nav>
 
           <div className="flex items-center gap-3">
-            <WalletBadge balance={session.user.balance ?? 0} />
+            <WalletBadge balance={session.user.balance ?? 0} realBalance={Number(dbUser?.realBalance ?? 0)} />
             <UserMenu user={session.user} />
           </div>
         </div>

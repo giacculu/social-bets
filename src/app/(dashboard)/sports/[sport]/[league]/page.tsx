@@ -22,7 +22,7 @@ export default async function LeaguePage({
     include: {
       sport: true,
       events: {
-        where: { status: { in: ["UPCOMING", "LIVE", "FINISHED"] } },
+        where: { status: { in: ["UPCOMING", "FINISHED"] } },
         include: {
           markets: {
             include: {
