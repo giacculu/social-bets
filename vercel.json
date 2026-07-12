@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron?job=sync",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron?job=settle",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron?job=full",
+      "schedule": "0 3 * * *"
+    }
+  ]
+}

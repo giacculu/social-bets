@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Trophy, Dices, Swords, Users, BarChart3, Wallet } from "lucide-react";
+import { Trophy, Dices, Swords, Users, BarChart3, Wallet, Shield } from "lucide-react";
 
 interface Sport {
   id: string;
@@ -23,6 +23,7 @@ export function SportsSidebar({ sports }: { sports: Sport[] }) {
     { href: "/friends", label: "Amici", icon: Users },
     { href: "/leaderboard", label: "Classifica", icon: BarChart3 },
     { href: "/wallet", label: "Portafoglio", icon: Wallet },
+    { href: "/admin", label: "Admin", icon: Shield },
   ];
 
   return (
